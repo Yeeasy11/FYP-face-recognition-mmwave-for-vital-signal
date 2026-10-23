@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('fyp-theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title>Vitals &amp; Face Recognition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fyp.css') }}" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#profiles-section">Skip to enrollment and monitoring</a>
+  <div class="app-shell">
+    <header class="app-header" role="banner">
+      <div class="app-header__inner">
+        <div class="app-header__top">
+          <div class="brand">
+            <span class="brand-badge" aria-hidden="true">FYP</span>
+            <div>
+              <p class="brand-kicker">Live · Research demo · Not a medical device</p>
+              <h1 class="brand-title">Contactless vitals &amp; face recognition</h1>
+            </div>
+          </div>
+          <nav class="nav-actions" aria-label="Primary actions">
+            <button type="button" class="btn-primary" onclick="startRecognize()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Recognize
+            </button>
+            <button type="button" class="btn-danger" onclick="stopAll()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+              Stop
+            </button>
+            <button type="button" class="btn-quiet" onclick="refreshStatus()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+              Refresh
+            </button>
+            <button type="button" class="btn-quiet btn-theme-toggle" id="btn-theme-toggle" aria-label="切换到深色模式" title="深色模式">
+              <span class="theme-icon theme-icon-sun" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              </span>
+              <span class="theme-icon theme-icon-moon" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </span>
+            </button>
+          </nav>
+        </div>
+        <div class="sensor-strip">
+          <p class="sensor-line">Video &amp; pipeline: <span id="sensor-chip">Detecting…</span></p>
+          <div class="live-age-strip" id="live-age-strip" aria-live="polite">
+            <span class="live-empty">Loading age estimates…</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" class="app-main">
+      <div class="container">
+
+        <section class="kpi-strip" aria-label="Session overview">
+          <div class="kpi-card" id="kpi-profiles">
+            <span class="kpi-label">
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Enrolled
+            </span>
+            <span class="kpi-value" id="kpi-profiles-value">—</span>
+            <span class="kpi-foot"><span class="kpi-chip muted" id="kpi-profiles-chip">Loading</span></span>
+          </div>
+          <div class="kpi-card" id="kpi-mode">
+            <span class="kpi-label">
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Session
+            </span>
+            <span class="kpi-value" id="kpi-mode-value">Idle</span>
+            <span class="kpi-foot"><span class="kpi-chip muted" id="kpi-mode-chip">Ready</span></span>
+          </div>
+          <div class="kpi-card" id="kpi-vitals">
+            <span class="kpi-label">
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Visual HR
+            </span>
+            <span class="kpi-value" id="kpi-vitals-value">—</span>
+            <span class="kpi-foot"><span class="kpi-chip muted" id="kpi-vitals-chip">Awaiting face</span></span>
+          </div>
+          <div class="kpi-card" id="kpi-radar">
+            <span class="kpi-label">
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M5 12a7 7 0 0 1 7-7"/><path d="M3 12a9 9 0 0 1 9-9"/><path d="M19 12a7 7 0 0 0-7-7"/></svg>
+              Radar
+            </span>
+            <span class="kpi-value" id="kpi-radar-value">Idle</span>
+            <span class="kpi-foot"><span class="kpi-chip muted" id="kpi-radar-chip">No stream</span></span>
+          </div>
+        </section>
+
+        <div class="layout layout-enroll-first">
+          <section class="section-block section-enroll-top" id="profiles-section">
+            <h2 class="section-heading">
+              <span class="section-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              Enrollment <span class="section-tag" id="profiles-summary-note">—</span>
+            </h2>
+            <p class="hint enroll-lede">Tap <strong>Enroll</strong> to use the <strong>next free slot</strong> automatically. Open <strong>Manage</strong> to see every slot, re-enroll, or delete.</p>
+            <div class="section-body">
+              <div class="enroll-simple-row" id="enroll-simple-row">
+                <button type="button" class="btn-primary" onclick="quickEnrollNextSlot()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Enroll
+                </button>
+                <button type="button" class="btn-quiet" id="btn-profile-manage" aria-expanded="false" onclick="toggleProfileManage()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Manage
+                </button>
+              </div>
+              <div id="profiles-manage-wrap" class="profiles-manage-wrap" hidden>
+                <p class="hint profiles-manage-hint">All slots</p>
+                <div class="profiles compact-grid" id="profiles-slots"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="session-banner" hidden class="session-banner session-banner--idle" role="status">
+          <div class="session-banner-inner">
+            <span id="session-badge" class="session-badge">Idle</span>
+            <p id="session-detail" class="session-detail">Ready</p>
+            <div id="session-progress-wrap" class="session-progress-wrap" style="display: none;">
+              <div class="session-progress"><div id="session-progress-bar" class="session-progress-bar"></div></div>
+              <span id="session-progress-text" class="session-progress-text"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layout">
+          <section class="panel panel-main panel-elevated main-stack">
+            <div class="monitor-grid monitor-grid--split">
+              <div class="monitor-grid__primary">
+                <div id="camera-section" class="camera-section" hidden>
+                  <div class="panel-label">Live view</div>
+                  <div id="video-dual-wrap" class="video-dual video-dual-rgb-only">
+                    <div class="video-wrap">
+                      <span class="video-chip">Live</span>
+                      <img id="video-feed-rgb" alt="Camera feed" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <aside class="monitor-grid__aside" aria-label="Recognition and depth">
+                <div class="depth-aside-card message" id="depth-aside-card">
+                  <p class="depth-aside-title">Depth (face ROI)</p>
+                  <div id="depth-aside-body" class="depth-aside-body" aria-live="polite">—</div>
+                </div>
+                <div class="result-card unknown" id="recognition-card">
+                  <p class="result-label">Recognition</p>
+                  <h2 class="result-name" id="recognition-name">Idle</h2>
+                  <div class="result-score" id="recognition-score">Age bands appear in the strip above; names and similarity show here after you start recognition.</div>
+                  <div class="result-list" id="recognition-list"></div>
+                </div>
+              </aside>
+            </div>
+
+            <section class="section-block" id="sec-vitals">
+              <h2 class="section-heading">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </span>
+                Visual HR &amp; respiration <span class="section-tag">PhysFormer · ROI</span>
+              </h2>
+              <div class="section-body">
+                <div class="message" id="vitals-panel">Loading…</div>
+                <p class="hint vitals-after">During enrollment, keep one person in frame at ~0.5–1.5&nbsp;m. Heart rate fills a frame buffer; respiration is a lightweight auxiliary estimate.</p>
+              </div>
+            </section>
+
+            <section class="section-block" id="sec-fusion">
+              <h2 class="section-heading">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
+                </span>
+                Multi-person fusion <span class="section-tag">Depth ↔ radar bins</span>
+              </h2>
+              <div class="section-body">
+                <div class="message" id="fusion-panel">Loading…</div>
+                <p class="hint hint-secondary fusion-after">Depth ranges map to radar channels with greedy pairing (<code>vitals_fusion.assignment</code>). Tune scene depth windows and matching via environment variables.</p>
+              </div>
+            </section>
+
+            <section class="section-block" id="sec-radar">
+              <h2 class="section-heading">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+                </span>
+                Millimeter-wave radar <span class="section-tag">Waveforms &amp; metrics</span>
+              </h2>
+              <div class="section-body">
+                <p class="hint hint-secondary radar-lede">
+                  256 range bins estimate respiration / heart rate; the primary metric remains the chest-averaged gate.
+                </p>
+                <div class="message" id="radar-fusion-hint">—</div>
+                <div class="radar-head">
+                  <span class="panel-label radar-panel-label">Radar · respiration &amp; heart rate</span>
+                  <div class="radar-toolbar">
+                    <button type="button" class="btn-primary" onclick="startRadarPi()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      Start radar
+                    </button>
+                    <button type="button" class="btn-danger" onclick="stopRadarPi()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                      Stop radar
+                    </button>
+                  </div>
+                </div>
+                <div class="radar-banner" id="radar-banner"></div>
+                <div id="radar-multi-metrics" class="radar-multi-metrics" hidden aria-live="polite"></div>
+                <div class="radar-status">
+                  <div class="metric">
+                    <small>Running</small>
+                    <strong id="radar-run">--</strong>
+                  </div>
+                  <div class="metric">
+                    <small>Frames / FPS</small>
+                    <strong><span id="radar-frames">0</span> · <span id="radar-fps">0</span></strong>
+                  </div>
+                  <div class="metric">
+                    <small>Resp / min</small>
+                    <strong id="radar-breath">--</strong>
+                  </div>
+                  <div class="metric">
+                    <small>HR / min</small>
+                    <strong id="radar-heart">--</strong>
+                  </div>
+                  <div class="metric">
+                    <small>Quality (R / H)</small>
+                    <strong><span id="radar-bq">--</span> · <span id="radar-hq">--</span></strong>
+                  </div>
+                </div>
+                <div class="radar-charts">
+                  <div class="radar-chart-card">
+                    <h3>Phase</h3>
+                    <div class="chart-box"><canvas id="chart-phase"></canvas></div>
+                  </div>
+                  <div class="radar-chart-card">
+                    <h3>Respiration <span class="chart-subtitle">Main channel · multi-bin when crowded</span></h3>
+                    <div class="chart-box"><canvas id="chart-breath"></canvas></div>
+                  </div>
+                  <div class="radar-chart-card">
+                    <h3>Heart rate <span class="chart-subtitle">Main channel · multi-bin when crowded</span></h3>
+                    <div class="chart-box"><canvas id="chart-heart"></canvas></div>
+                  </div>
+                </div>
+                <div id="radar-waveform-key" class="radar-waveform-key" style="display:none;" aria-live="polite"></div>
+                <p class="hint radar-footnote">Pi runs <code>shumeipai.py</code>; set <code>RADAR_PI_BASE=http://…</code> on the host; use <code>USE_PI_CAMERA=1</code> when the camera is on the Pi.</p>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <footer class="site-footer">
+          <div class="footer-grid">
+            <div>
+              <h4>What this does</h4>
+              <p>Estimates age from the camera, enrolls faces and matches identities; optionally combines mmWave radar for respiration / heart-rate views and multimodal fusion. Research demo only—not for diagnosis.</p>
+            </div>
+            <div>
+              <h4>Suggested flow</h4>
+              <ol>
+                <li>Under Enrollment, pick a slot and complete capture;</li>
+                <li>Tap <strong>Recognize</strong> when you need identity matching;</li>
+                <li>Review radar and vitals plots below.</li>
+              </ol>
+            </div>
+            <div>
+              <h4>Deployment</h4>
+              <p>The browser talks to the <strong>host</strong> running <code>face_app.py</code>. A Raspberry Pi can stream USB camera and radar; with <code>USE_PI_CAMERA=1</code>, vision algorithms still run on the <span class="footer-em">host</span>.</p>
+            </div>
+          </div>
+          <p class="footer-copy">Final-year project · LAN deployment</p>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="enroll-modal" class="modal-native">
+    <div class="modal-card">
+      <h3>Enrollment</h3>
+      <p class="modal-hint">Single face, even lighting. Display name is for UI only; optional reference age helps sanity-check band predictions.</p>
+      <label for="enroll-name-input">Name or label</label>
+      <input type="text" id="enroll-name-input" maxlength="40" placeholder="e.g. Jane Doe" autocomplete="name" />
+      <label for="enroll-age-input">Reference age (optional)</label>
+      <input type="number" id="enroll-age-input" min="0" max="120" placeholder="Leave empty to skip accuracy check" />
+      <div class="modal-actions">
+        <button type="button" class="btn-quiet" onclick="document.getElementById('enroll-modal').close()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitEnrollFromModal()">Start enrollment</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    let latestStatus = null;
+    let chartPhase = null;
+    let chartBreath = null;
+    let chartHeart = null;
+    let enrollTargetPerson = null;
+    let lastRadarPayload = null;
+    let cameraLiveActive = false;
+
+    let chartLineMuted = ['#4338ca', '#0891b2', '#64748b'];
+    let radarPalette = ['#4338ca', '#0891b2', '#059669', '#d97706', '#ec4899'];
+
+    function cssVar(name, fallback) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    }
+
+    function getThemeChartPalette() {
+      return {
+        grid: cssVar('--chart-grid', '#e2e8f0'),
+        tick: cssVar('--chart-tick', '#94a3b8'),
+        lines: [
+          cssVar('--brand', '#4338ca'),
+          cssVar('--accent', '#0891b2'),
+          cssVar('--text-muted', '#64748b'),
+        ],
+        radar: [
+          cssVar('--brand', '#4338ca'),
+          cssVar('--accent', '#0891b2'),
+          cssVar('--success', '#059669'),
+          cssVar('--warn', '#d97706'),
+          cssVar('--live', '#ec4899'),
+        ],
+        placeholder: cssVar('--border', '#cbd5e1'),
+      };
+    }
+
+    function applyChartTheme() {
+      const pal = getThemeChartPalette();
+      chartLineMuted = pal.lines.slice(0, 3);
+      radarPalette = pal.radar.slice();
+      const charts = [chartPhase, chartBreath, chartHeart].filter(Boolean);
+      charts.forEach((chart) => {
+        if (chart.options && chart.options.scales && chart.options.scales.y) {
+          chart.options.scales.y.ticks.color = pal.tick;
+          chart.options.scales.y.grid.color = pal.grid;
+        }
+        if (chart.data.datasets && chart.data.datasets[0]) {
+          const ds0 = chart.data.datasets[0];
+          if (ds0.borderColor === '#cbd5e1' || ds0.label === '—') {
+            ds0.borderColor = pal.placeholder;
+          } else if (!ds0.borderDash || !ds0.borderDash.length) {
+            ds0.borderColor = chartLineMuted[0];
+          }
+        }
+        chart.update('none');
+      });
+    }
+
+    function initThemeToggle() {
+      const btn = document.getElementById('btn-theme-toggle');
+      const meta = document.querySelector('meta[name="color-scheme"]');
+      function applyTheme(theme) {
+        const dark = theme === 'dark';
+        if (dark) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+        }
+        if (meta) meta.setAttribute('content', dark ? 'dark' : 'light');
+        try {
+          localStorage.setItem('fyp-theme', dark ? 'dark' : 'light');
+        } catch (e) {}
+        if (btn) {
+          btn.setAttribute('aria-label', dark ? '切换到浅色模式' : '切换到深色模式');
+          btn.setAttribute('title', dark ? '浅色模式' : '深色模式');
+        }
+        applyChartTheme();
+      }
+      let stored = 'light';
+      try {
+        stored = localStorage.getItem('fyp-theme') === 'dark' ? 'dark' : 'light';
+      } catch (e) {}
+      applyTheme(stored);
+      if (btn) {
+        btn.addEventListener('click', function () {
+          const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+          applyTheme(dark ? 'light' : 'dark');
+        });
+      }
+    }
+
+    function alignSeriesRight(values, targetLen) {
+      const nums = (values || []).map((v) =>
+        v == null || Number.isNaN(Number(v)) ? null : Number(v)
+      );
+      if (nums.length >= targetLen) return nums.slice(-targetLen);
+      const pad = targetLen - nums.length;
+      return [...Array(pad).fill(null), ...nums];
+    }
+
+    function viewerFaceCount() {
+      const s = latestStatus;
+      if (!s) return 1;
+      const vf = s.vitals && s.vitals.faces;
+      if (Array.isArray(vf) && vf.length > 0) return vf.length;
+      const lp = s.live_preview && s.live_preview.faces;
+      if (Array.isArray(lp) && lp.length > 0) return lp.length;
+      return 1;
+    }
+
+    function mainChannelDisplayLabel() {
+      const s = latestStatus;
+      if (
+        s &&
+        s.last_recognition &&
+        Array.isArray(s.last_recognition.labels) &&
+        s.last_recognition.labels.length === 1
+      ) {
+        return String(s.last_recognition.labels[0]);
+      }
+      return 'Main channel (chest average)';
+    }
+
+    function fusionRowForChannel(ch) {
+      if (!ch || !latestStatus || !latestStatus.vitals_fusion) return null;
+      const people = latestStatus.vitals_fusion.people;
+      if (!Array.isArray(people)) return null;
+      return people.find((p) => p && p.radar_channel_id === ch.id) || null;
+    }
+
+    function legendForRadarChannel(ch) {
+      if (!ch) return '—';
+      const row = fusionRowForChannel(ch);
+      const cid = ch.id;
+      const binShort = `bin ${ch.bin_start}–${ch.bin_end}`;
+      const labels =
+        latestStatus &&
+        latestStatus.last_recognition &&
+        Array.isArray(latestStatus.last_recognition.labels)
+          ? latestStatus.last_recognition.labels
+          : [];
+      if (!row) {
+        return `Radar Ch${cid} · ${binShort}`;
+      }
+      const who =
+        typeof row.face_index === 'number' && labels[row.face_index]
+          ? String(labels[row.face_index])
+          : null;
+      const slot = row.slot;
+      const dm = row.depth_m;
+      const dStr =
+        dm != null && !Number.isNaN(Number(dm)) ? `${Number(dm).toFixed(2)} m` : '';
+      const bits = [];
+      if (who) bits.push(who);
+      else bits.push(`Person ${slot}`);
+      bits.push(`Slot ${slot}`);
+      if (dStr) bits.push(dStr);
+      bits.push(`Ch${cid}`);
+      return bits.join(' · ');
+    }
+
+    function resolveOrderedRadarChannels(d, signalKey) {
+      const chans = Array.isArray(d.radar_channels) ? d.radar_channels : [];
+      const s = latestStatus;
+      const peopleRows =
+        s && s.vitals_fusion && Array.isArray(s.vitals_fusion.people)
+          ? s.vitals_fusion.people.filter(
+              (p) => p && p.radar_channel_id != null && p.slot != null
+            )
+          : [];
+      const sorted = [...peopleRows].sort((a, b) => Number(a.slot) - Number(b.slot));
+
+      const channelReady = (c) => {
+        if (!c || !c.ready) return false;
+        if (signalKey) {
+          return Array.isArray(c[signalKey]) && c[signalKey].length > 0;
+        }
+        return (
+          (c.breathing_rate != null && Number(c.breathing_rate) > 0) ||
+          (c.heart_rate != null && Number(c.heart_rate) > 0) ||
+          (Array.isArray(c.breathing_signal) && c.breathing_signal.length > 0) ||
+          (Array.isArray(c.heart_signal) && c.heart_signal.length > 0)
+        );
+      };
+
+      const ordered = [];
+      for (const p of sorted) {
+        const c = chans.find((x) => x && x.id === p.radar_channel_id);
+        if (channelReady(c)) ordered.push(c);
+      }
+      if (ordered.length > 0) return ordered;
+      return chans.filter(channelReady).sort((a, b) => (a.id || 0) - (b.id || 0));
+    }
+
+    function getOrderedRadarChannels(d, signalKey) {
+      if (viewerFaceCount() < 2) return [];
+      return resolveOrderedRadarChannels(d, signalKey);
+    }
+
+    function radarPersonLabel(c, visIdx) {
+      const row = fusionRowForChannel(c);
+      const labels =
+        latestStatus &&
+        latestStatus.last_recognition &&
+        Array.isArray(latestStatus.last_recognition.labels)
+          ? latestStatus.last_recognition.labels
+          : [];
+      if (row && typeof row.face_index === 'number' && labels[row.face_index]) {
+        return String(labels[row.face_index]);
+      }
+      const cid = c && c.id != null ? c.id : visIdx;
+      return `Person ${visIdx + 1} · Ch${cid}`;
+    }
+
+    function renderRadarVitalMetrics(d) {
+      const wrap = document.getElementById('radar-multi-metrics');
+      const breathEl = document.getElementById('radar-breath');
+      const heartEl = document.getElementById('radar-heart');
+      const bqEl = document.getElementById('radar-bq');
+      const hqEl = document.getElementById('radar-hq');
+      const faceN = viewerFaceCount();
+      const multi = faceN >= 2;
+
+      let list = multi ? getOrderedRadarChannels(d, 'heart_signal') : [];
+      if (multi && list.length < Math.min(faceN, 2)) {
+        list = resolveOrderedRadarChannels(d, null).slice(0, faceN);
+      }
+
+      if (!multi || list.length < 1) {
+        if (wrap) {
+          wrap.hidden = true;
+          wrap.innerHTML = '';
+        }
+        const br = Number(d.breathing_rate);
+        const hr = Number(d.heart_rate);
+        if (breathEl) {
+          breathEl.textContent = Number.isFinite(br) && br > 0 ? br.toFixed(1) : '--';
+        }
+        if (heartEl) {
+          heartEl.textContent = Number.isFinite(hr) && hr > 0 ? hr.toFixed(1) : '--';
+        }
+        if (bqEl) {
+          bqEl.textContent =
+            d.breathing_quality != null ? Number(d.breathing_quality).toFixed(2) : '--';
+        }
+        if (hqEl) {
+          hqEl.textContent =
+            d.heart_quality != null ? Number(d.heart_quality).toFixed(2) : '--';
+        }
+        return;
+      }
+
+      if (breathEl) {
+        breathEl.textContent =
+          list.length >= 2 ? `${list.length} channels` : '1 channel (waiting for 2nd)';
+      }
+      if (heartEl) heartEl.textContent = 'see cards below';
+      if (bqEl) bqEl.textContent = '—';
+      if (hqEl) hqEl.textContent = '—';
+
+      if (!wrap) return;
+      wrap.hidden = false;
+      wrap.innerHTML = list
+        .map((c, idx) => {
+          const name = radarPersonLabel(c, idx);
+          const col = radarPalette[idx % radarPalette.length];
+          const br = Number(c.breathing_rate);
+          const hr = Number(c.heart_rate);
+          const brTxt = Number.isFinite(br) && br > 0 ? br.toFixed(1) : '--';
+          const hrTxt = Number.isFinite(hr) && hr > 0 ? hr.toFixed(1) : '--';
+          const bq =
+            c.breathing_quality != null ? Number(c.breathing_quality).toFixed(2) : '--';
+          const hq = c.heart_quality != null ? Number(c.heart_quality).toFixed(2) : '--';
+          const dash = idx % 2 === 1 ? 'dashed line' : 'solid line';
+          return `<article class="radar-person-card" style="--rpc-accent:${col}">
+            <header class="rpc-head"><span class="rpc-swatch" style="background:${col}"></span>
+              <strong class="rpc-name">${name}</strong>
+              <span class="rpc-meta">Ch${c.id} · ${dash}</span></header>
+            <div class="rpc-grid">
+              <div class="rpc-stat"><small>Resp / min</small><strong>${brTxt}</strong></div>
+              <div class="rpc-stat"><small>HR / min</small><strong>${hrTxt}</strong></div>
+              <div class="rpc-stat rpc-stat-wide"><small>Quality (R / H)</small><strong>${bq} · ${hq}</strong></div>
+            </div>
+          </article>`;
+        })
+        .join('');
+    }
+
+    function updateRadarWaveformKey() {
+      const el = document.getElementById('radar-waveform-key');
+      if (!el) return;
+      if (viewerFaceCount() < 2 || !lastRadarPayload) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+      }
+      const list = getOrderedRadarChannels(lastRadarPayload, 'heart_signal');
+      if (list.length < 2) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+      }
+      const rows = list
+        .map((c, idx) => {
+          const col = radarPalette[idx % radarPalette.length];
+          const dash = idx % 2 === 1 ? 'Dashed' : 'Solid';
+          const txt = legendForRadarChannel(c);
+          const sw =
+            idx % 2 === 1
+              ? `width:32px;border-top:3px dashed ${col};height:0;margin-top:10px;background:transparent;`
+              : `width:32px;height:3px;background:${col};border-radius:2px;margin-top:8px;`;
+          return `<div class="rwk-row"><span class="rwk-swatch" style="${sw}"></span><span><strong>${dash}</strong> — ${txt}<br/><span class="rwk-note">Matches the breath/HR charts above; slot order aligns with the fusion table (near to far by depth).</span></span></div>`;
+        })
+        .join('');
+      el.innerHTML =
+        `<div class="rwk-title">Telling people apart: tone + solid/dashed + slot (same as fusion table)</div>${rows}`;
+      el.style.display = 'block';
+    }
+
+    function buildRadarWaveformDatasets(d, signalKey) {
+      const main = d[signalKey];
+      const mainArr =
+        Array.isArray(main) && main.length ? main.map(Number) : null;
+      const chans = Array.isArray(d.radar_channels) ? d.radar_channels : [];
+
+      const multiPerson = viewerFaceCount() >= 2;
+
+      if (!multiPerson) {
+        if (mainArr && mainArr.length) {
+          return [
+            {
+              label: mainChannelDisplayLabel(),
+              data: mainArr,
+              borderColor: radarPalette[0],
+              backgroundColor: 'transparent',
+              borderWidth: 1.75,
+              pointRadius: 0,
+              tension: 0.16,
+            },
+          ];
+        }
+        const first = chans.find(
+          (c) => c && c.ready && Array.isArray(c[signalKey]) && c[signalKey].length > 0
+        );
+        if (first) {
+          return [
+            {
+              label: legendForRadarChannel(first),
+              data: first[signalKey].map(Number),
+              borderColor: radarPalette[0],
+              backgroundColor: 'transparent',
+              borderWidth: 1.75,
+              pointRadius: 0,
+              tension: 0.16,
+            },
+          ];
+        }
+        return [];
+      }
+
+      const ready = getOrderedRadarChannels(d, signalKey);
+      const out = ready.map((c, idx) => ({
+        label: legendForRadarChannel(c),
+        data: c[signalKey].map(Number),
+        borderColor: radarPalette[idx % radarPalette.length],
+        backgroundColor: 'transparent',
+        borderWidth: 1.75,
+        pointRadius: 0,
+        tension: 0.16,
+        borderDash: idx % 2 === 1 ? [8, 5] : [],
+      }));
+      if (out.length > 0) return out;
+      if (mainArr && mainArr.length) {
+        return [
+          {
+            label: mainChannelDisplayLabel(),
+            data: mainArr,
+            borderColor: radarPalette[0],
+            backgroundColor: 'transparent',
+            borderWidth: 1.75,
+            pointRadius: 0,
+            tension: 0.16,
+          },
+        ];
+      }
+      return [];
+    }
+
+    function applyWaveformChart(chart, datasets) {
+      if (!chart) return;
+      if (!datasets.length) {
+        chart.data.labels = Array.from({ length: 24 }, (_, i) => i);
+        chart.data.datasets = [
+          {
+            label: '—',
+            data: new Array(24).fill(null),
+            borderColor: pal.placeholder,
+            borderWidth: 1,
+            pointRadius: 0,
+          },
+        ];
+        chart.options.plugins.legend.display = false;
+        chart.update('none');
+        return;
+      }
+      let maxL = 0;
+      datasets.forEach((ds) => {
+        maxL = Math.max(maxL, ds.data.length);
+      });
+      maxL = Math.max(maxL, 12);
+      chart.data.labels = Array.from({ length: maxL }, (_, i) => i);
+      chart.data.datasets = datasets.map((ds) => ({
+        ...ds,
+        data: alignSeriesRight(ds.data, maxL),
+      }));
+      chart.options.plugins.legend.display = datasets.length > 1;
+      chart.options.plugins.legend.position = 'bottom';
+      chart.options.plugins.legend.labels = {
+        boxWidth: 10,
+        font: { size: 10 },
+      };
+      chart.update('none');
+    }
+
+    async function callApi(url, body = null) {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        alert(data.error || 'Request failed');
+        return data;
+      }
+      return data;
+    }
+
+    function openEnrollModal(person) {
+      enrollTargetPerson = person;
+      const prof = latestStatus && latestStatus.profiles
+        ? latestStatus.profiles.find((p) => p.id === person)
+        : null;
+      const nameEl = document.getElementById('enroll-name-input');
+      const ageEl = document.getElementById('enroll-age-input');
+      if (nameEl) nameEl.value = (prof && prof.display_name) ? prof.display_name : '';
+      if (ageEl) {
+        ageEl.value = prof && prof.actual_age != null && prof.actual_age !== ''
+          ? String(prof.actual_age)
+          : '';
+      }
+      document.getElementById('enroll-modal').showModal();
+      setTimeout(() => nameEl && nameEl.focus(), 50);
+    }
+
+    async function submitEnrollFromModal() {
+      const person = enrollTargetPerson;
+      if (!person) return;
+      const display_name = document.getElementById('enroll-name-input').value.trim();
+      const ageRaw = document.getElementById('enroll-age-input').value;
+      const body = { person, display_name: display_name || undefined };
+      if (ageRaw !== '' && ageRaw != null) {
+        body.actual_age = Number(ageRaw);
+      }
+      const res = await callApi('/api/enroll/start', body);
+      if (res && res.ok) {
+        document.getElementById('enroll-modal').close();
+        await refreshStatus();
+      }
+    }
+
+    async function deleteProfile(person, label) {
+      if (!confirm(`Delete enrolled data for slot “${label}”?`)) return;
+      await callApi('/api/profile/delete', { person });
+      await refreshStatus();
+    }
+
+    async function startRecognize() {
+      await callApi('/api/recognize/start');
+      await refreshStatus();
+    }
+
+    async function stopAll() {
+      await callApi('/api/stop');
+      await refreshStatus();
+    }
+
+    function renderLivePreview(s) {
+      const el = document.getElementById('live-age-strip');
+      if (!el) return;
+      const lp = s.live_preview || {};
+      const faces = Array.isArray(lp.faces) ? lp.faces : [];
+      if (!faces.length) {
+        el.innerHTML = '<span class="live-empty">Waiting for face detection…</span>';
+        return;
+      }
+      el.innerHTML = faces.map((f) => {
+        const a = f.age;
+        if (f.quality_ok && a && a.label) {
+          const conf =
+            a.confidence != null && Number(a.confidence) > 0
+              ? ` · ${Number(a.confidence).toFixed(2)}`
+              : '';
+          return `<span class="age-pill"><span class="slot">#${f.slot}</span>${a.label} ${a.range || ''}${conf}</span>`;
+        }
+        return `<span class="age-pill dim"><span class="slot">#${f.slot}</span>Move closer; keep lighting steady</span>`;
+      }).join('');
+    }
+
+    function nextEmptyPersonId(s) {
+      const profiles = s.profiles || [];
+      for (const p of profiles) {
+        if (!p.ready) return p.id;
+      }
+      return null;
+    }
+
+    function quickEnrollNextSlot() {
+      if (!latestStatus) {
+        refreshStatus();
+        return;
+      }
+      const pid = nextEmptyPersonId(latestStatus);
+      if (!pid) {
+        alert('All profile slots are full. Use Manage to delete or re-enroll a slot.');
+        return;
+      }
+      openEnrollModal(pid);
+    }
+
+    function toggleProfileManage() {
+      const wrap = document.getElementById('profiles-manage-wrap');
+      const btn = document.getElementById('btn-profile-manage');
+      if (!wrap || !btn) return;
+      const willOpen = wrap.hasAttribute('hidden');
+      if (willOpen) {
+        wrap.removeAttribute('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+      } else {
+        wrap.setAttribute('hidden', '');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function renderDepthAside(s) {
+      const el = document.getElementById('depth-aside-body');
+      if (!el) return;
+      const zMap = { optimal: 'OK band', too_near: 'too close', too_far: 'too far', unknown: 'unknown' };
+      const v = s.vitals || {};
+      const vf = Array.isArray(v.faces) ? v.faces : [];
+      if (vf.length && v.enabled !== false && !v.error) {
+        el.innerHTML = vf
+          .map((f, i) => {
+            const dm =
+              f.depth_m != null && !Number.isNaN(Number(f.depth_m))
+                ? Number(f.depth_m).toFixed(2)
+                : '—';
+            const raw = f.depth_zone != null ? String(f.depth_zone) : '';
+            const zt = zMap[raw] || raw || '';
+            const line = dm !== '—' && zt ? `${dm} m · ${zt}` : dm === '—' ? '—' : `${dm} m`;
+            return `<div class="depth-aside-row"><span class="depth-slot">Person ${i + 1}</span><span class="depth-val">${line}</span></div>`;
+          })
+          .join('');
+        return;
+      }
+      const lp = s.live_preview || {};
+      const lf = Array.isArray(lp.faces) ? lp.faces : [];
+      if (lf.length) {
+        let anyDepth = false;
+        const rows = lf
+          .map((f) => {
+            const dm =
+              f.depth_m != null && !Number.isNaN(Number(f.depth_m))
+                ? Number(f.depth_m).toFixed(2)
+                : null;
+            if (dm != null) anyDepth = true;
+            const raw = f.depth_zone != null ? String(f.depth_zone) : '';
+            const zt = zMap[raw] || raw || '';
+            const line =
+              dm != null ? (zt ? `${dm} m · ${zt}` : `${dm} m`) : '—';
+            return `<div class="depth-aside-row"><span class="depth-slot">Face #${f.slot}</span><span class="depth-val">${line}</span></div>`;
+          })
+          .join('');
+        el.innerHTML =
+          rows +
+          (anyDepth
+            ? ''
+            : '<div class="depth-aside-note">No depth in ROI (Pi RGB-only, or depth not available yet).</div>');
+        return;
+      }
+      el.innerHTML = '<span class="live-empty">No faces in view.</span>';
+    }
+
+    function renderProfiles(s) {
+      const dlg = document.getElementById('enroll-modal');
+      if (dlg && dlg.open) return;
+
+      const ready = s.ready_count || 0;
+      const note = document.getElementById('profiles-summary-note');
+      if (note) {
+        note.textContent = `${ready}/${s.max_profiles || 10} enrolled · ${s.target_samples ?? 20} frames per slot`;
+      }
+
+      const root = document.getElementById('profiles-slots');
+      if (!root) return;
+      root.innerHTML = '';
+      for (const profile of s.profiles) {
+        const progress = s.target_samples > 0
+          ? Math.min(100, Math.round((profile.samples / s.target_samples) * 100))
+          : 0;
+        const card = document.createElement('div');
+        card.className = 'profile';
+        const safeLabel = String(profile.label).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        card.innerHTML = `
+          <div class="profile-head">
+            <strong>${profile.label}</strong>
+            <span class="badge ${profile.ready ? 'ready' : 'not-ready'}">${profile.ready ? 'Enrolled' : 'Empty'}</span>
+          </div>
+          <div class="progress"><div class="bar" style="width: ${progress}%"></div></div>
+          <div class="profile-actions">
+            <button type="button" class="btn-primary" onclick="openEnrollModal('${profile.id}')">${profile.ready ? 'Re-enroll' : 'Enroll'}</button>
+            <button type="button" class="btn-danger" ${profile.ready ? '' : 'disabled'} onclick="deleteProfile('${profile.id}', '${safeLabel}')">Delete</button>
+          </div>
+        `;
+        root.appendChild(card);
+      }
+    }
+
+    function renderRecognition(s) {
+      const result = s.last_recognition || {};
+      const card = document.getElementById('recognition-card');
+      const name = document.getElementById('recognition-name');
+      const score = document.getElementById('recognition-score');
+      const list = document.getElementById('recognition-list');
+      const label = result.label || 'Waiting';
+      const labels = Array.isArray(result.labels) ? result.labels : [];
+      const scores = Array.isArray(result.scores) ? result.scores : [];
+      const ages = Array.isArray(result.ages) ? result.ages : [];
+      const isKnown = Boolean(result.is_known);
+
+      card.className = 'result-card ' + (isKnown ? '' : 'unknown');
+      name.textContent = labels.length > 0
+        ? (result.summary || `Left to right: ${labels.join(', ')}`)
+        : label;
+      if (labels.length > 0) {
+        score.textContent = `${labels.length} face(s) detected`;
+      } else if (s.mode !== 'recognize') {
+        score.textContent = 'Age bands are in the strip above; start recognition to match names here.';
+      } else {
+        score.textContent = 'Face the camera with a clear view of your face.';
+      }
+      list.innerHTML = '';
+      labels.forEach((personLabel, index) => {
+        const row = document.createElement('div');
+        row.className = 'result-item';
+        const scoreText = scores[index] > 0 ? Number(scores[index]).toFixed(2) : 'n/a';
+        const age = ages[index] || {};
+        const ageText = age.label
+          ? `${age.label} ${age.range || ''} ${age.confidence > 0 ? `(${Number(age.confidence).toFixed(2)})` : ''}`
+          : 'Age unknown';
+        const actualText = age.actual_age !== undefined && age.actual_age !== null
+          ? `Actual age: ${age.actual_age} (${age.actual_range || 'n/a'})`
+          : 'Actual age: not provided';
+        const evalText = age.evaluation ? `Age eval: ${age.evaluation}` : 'Age eval: n/a';
+        const smoothText = age.smoothed ? `Smoothing: ${age.smoothing_window || '-'} frames (majority)` : 'Smoothing: off';
+        const calibrationText = age.calibrated
+          ? `Calibration: raw ${age.raw_range || 'n/a'}, shifted one band`
+          : 'Calibration: none';
+        row.innerHTML = `<span>#${index + 1}: ${personLabel}<br>Predicted band: ${ageText}<br>${actualText}<br>${evalText}<br>${calibrationText}<br>${smoothText}</span><span>Similarity: ${scoreText}</span>`;
+        list.appendChild(row);
+      });
+    }
+
+    function syncLiveCamera(s) {
+      const mode = s.mode || 'idle';
+      const on = mode === 'enroll' || mode === 'recognize';
+      const section = document.getElementById('camera-section');
+      const rgb = document.getElementById('video-feed-rgb');
+      if (!section) return;
+      if (on) {
+        section.removeAttribute('hidden');
+        if (!cameraLiveActive) {
+          const bust = Date.now();
+          if (rgb) rgb.src = '/video_feed?' + bust;
+        }
+        cameraLiveActive = true;
+      } else {
+        cameraLiveActive = false;
+        section.setAttribute('hidden', '');
+        if (rgb) rgb.removeAttribute('src');
+      }
+    }
+
+    function updateSessionChrome(s) {
+      const banner = document.getElementById('session-banner');
+      const badge = document.getElementById('session-badge');
+      const detail = document.getElementById('session-detail');
+      const pw = document.getElementById('session-progress-wrap');
+      const bar = document.getElementById('session-progress-bar');
+      const pt = document.getElementById('session-progress-text');
+      if (!banner || !badge || !detail) return;
+      const mode = s.mode || 'idle';
+      banner.hidden = mode === 'idle';
+      banner.className = 'session-banner session-banner--' + mode;
+      if (mode === 'enroll') {
+        badge.textContent = 'Enroll';
+        const nm = s.enrolling_display_name ? `“${s.enrolling_display_name}”` : '';
+        detail.textContent = [nm, s.status_text].filter(Boolean).join(' ').trim() || 'Enrolling…';
+        const ep = s.enroll_person;
+        const prof = ep && s.profiles ? s.profiles.find((p) => p.id === ep) : null;
+        const tgt = s.target_samples || 20;
+        const samp = prof ? prof.samples : 0;
+        const prog = tgt > 0 ? Math.min(100, Math.round((samp / tgt) * 100)) : 0;
+        if (pw && bar && pt) {
+          pw.style.display = 'flex';
+          bar.style.width = prog + '%';
+          pt.textContent = `${samp} / ${tgt} samples`;
+        }
+      } else if (mode === 'recognize') {
+        badge.textContent = 'Recognize';
+        const labs =
+          s.last_recognition &&
+          Array.isArray(s.last_recognition.labels) &&
+          s.last_recognition.labels.length
+            ? `Matched: ${s.last_recognition.labels.join(' · ')}`
+            : '';
+        detail.textContent = (labs || s.status_text || '').trim();
+        if (pw) pw.style.display = 'none';
+      } else {
+        badge.textContent = 'Idle';
+        detail.textContent = '';
+        if (pw) pw.style.display = 'none';
+      }
+    }
+
+    function setKpi(elId, value) {
+      const el = document.getElementById(elId);
+      if (el) el.textContent = value;
+    }
+
+    function setKpiChip(elId, text, variant) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.className =
+        'kpi-chip ' +
+        (variant && ['success', 'warn', 'danger', 'muted', 'live'].includes(variant)
+          ? variant
+          : 'muted');
+    }
+
+    function renderKpis() {
+      const s = latestStatus || {};
+      const r = lastRadarPayload || {};
+
+      const ready = s.ready_count || 0;
+      const total = s.max_profiles || 10;
+      setKpi('kpi-profiles-value', `${ready}/${total}`);
+      if (ready === 0) {
+        setKpiChip('kpi-profiles-chip', 'No enrolled slot', 'muted');
+      } else if (ready >= total) {
+        setKpiChip('kpi-profiles-chip', 'All slots used', 'warn');
+      } else {
+        setKpiChip('kpi-profiles-chip', `${total - ready} free`, 'success');
+      }
+
+      const mode = s.mode || 'idle';
+      if (mode === 'enroll') {
+        setKpi('kpi-mode-value', 'Enroll');
+        setKpiChip('kpi-mode-chip', 'Capturing samples', 'live');
+      } else if (mode === 'recognize') {
+        setKpi('kpi-mode-value', 'Recognize');
+        setKpiChip('kpi-mode-chip', 'Matching identities', 'success');
+      } else {
+        setKpi('kpi-mode-value', 'Idle');
+        setKpiChip('kpi-mode-chip', 'Awaiting action', 'muted');
+      }
+
+      const v = s.vitals || {};
+      const faces = Array.isArray(v.faces) ? v.faces : [];
+      if (v.enabled === false) {
+        setKpi('kpi-vitals-value', 'Off');
+        setKpiChip('kpi-vitals-chip', v.error || 'Disabled', 'muted');
+      } else if (faces.length) {
+        const hr = faces.find((f) => f.hr_bpm != null && !Number.isNaN(Number(f.hr_bpm)));
+        if (hr) {
+          setKpi('kpi-vitals-value', `${Math.round(Number(hr.hr_bpm))} BPM`);
+          setKpiChip('kpi-vitals-chip', `${faces.length} face(s) tracked`, 'success');
+        } else {
+          const f0 = faces[0] || {};
+          const p = f0.buffer_progress != null ? f0.buffer_progress : 0;
+          const n = f0.buffer_need != null ? f0.buffer_need : 160;
+          setKpi('kpi-vitals-value', `${p}/${n}`);
+          setKpiChip('kpi-vitals-chip', 'Buffering frames', 'warn');
+        }
+      } else {
+        setKpi('kpi-vitals-value', '—');
+        setKpiChip('kpi-vitals-chip', v.error ? String(v.error) : 'Awaiting face', 'muted');
+      }
+
+      const running = Boolean(r.is_running);
+      if (running) {
+        const faceN = viewerFaceCount();
+        let kpiHr = 'Live';
+        if (faceN >= 2) {
+          let chList = getOrderedRadarChannels(r, 'heart_signal');
+          if (chList.length < 2) chList = resolveOrderedRadarChannels(r, null).slice(0, faceN);
+          if (chList.length >= 2) {
+            kpiHr = chList
+              .map((c, i) => {
+                const hr = Number(c.heart_rate);
+                const v = Number.isFinite(hr) && hr > 0 ? `${hr.toFixed(0)}` : '—';
+                return `${radarPersonLabel(c, i).split(' · ')[0]}:${v}`;
+              })
+              .join(' · ');
+          } else {
+            const hrR = Number(r.heart_rate);
+            if (Number.isFinite(hrR) && hrR > 0) kpiHr = `${hrR.toFixed(1)} BPM`;
+          }
+        } else {
+          const hrR = Number(r.heart_rate);
+          if (Number.isFinite(hrR) && hrR > 0) kpiHr = `${hrR.toFixed(1)} BPM`;
+        }
+        setKpi('kpi-radar-value', kpiHr);
+        setKpiChip(
+          'kpi-radar-chip',
+          `${r.frame_count != null ? r.frame_count : 0} frames · ${r.fps != null ? r.fps : 0} FPS`,
+          'live'
+        );
+      } else {
+        setKpi('kpi-radar-value', 'Idle');
+        setKpiChip('kpi-radar-chip', r.error ? 'Pi unreachable' : 'No stream', 'muted');
+      }
+    }
+
+    async function refreshStatus() {
+      const resp = await fetch('/api/status');
+      const s = await resp.json();
+      latestStatus = s;
+      const chip = document.getElementById('sensor-chip');
+      if (chip) {
+        const sens = s.sensor || {};
+        if (sens.camera_backend === 'pi_http') {
+          chip.textContent = 'Pi camera stream · recognition & vitals run on this host';
+        } else {
+          chip.textContent = 'Local Intel RealSense · recognition & vitals on this host (depth-backed)';
+        }
+      }
+      renderLivePreview(s);
+      renderRecognition(s);
+      renderProfiles(s);
+      renderDepthAside(s);
+      const v = s.vitals || {};
+      const vp = document.getElementById('vitals-panel');
+      if (v.enabled === false) {
+        vp.textContent = v.error || 'Disabled';
+        vp.style.color = 'var(--text-muted)';
+      } else if (v.faces && v.faces.length > 0) {
+        vp.style.color = 'inherit';
+        const zMap = { optimal: 'distance OK', too_near: 'too close', too_far: 'too far', unknown: 'depth unknown' };
+        vp.innerHTML = v.faces.map((f, i) => {
+          const hr = f.hr_bpm;
+          const rr = f.resp_bpm;
+          const p = f.buffer_progress != null ? f.buffer_progress : 0;
+          const n = f.buffer_need != null ? f.buffer_need : 160;
+          const dm = f.depth_m != null && !Number.isNaN(Number(f.depth_m)) ? Number(f.depth_m).toFixed(2) : null;
+          const dz = f.depth_zone && zMap[f.depth_zone] ? zMap[f.depth_zone] : (f.depth_zone || '');
+          let line = '';
+          if (hr != null && !Number.isNaN(Number(hr))) {
+            line = `Person ${i + 1}: HR ≈ <strong>${Number(hr).toFixed(0)}</strong> BPM`;
+          } else {
+            line = `Person ${i + 1}: HR buffering ${p}/${n} frames`;
+          }
+          if (rr != null && !Number.isNaN(Number(rr))) {
+            line += ` · visual respiration ≈ ${Number(rr).toFixed(1)} /min`;
+          }
+          if (dm != null) {
+            line += ` · depth <strong>${dm}</strong> m`;
+            if (dz) line += ` (${dz})`;
+          }
+          return line;
+        }).join('<br>');
+      } else {
+        vp.textContent = v.error ? String(v.error) : 'No stable face yet; face the camera briefly.';
+        vp.style.color = 'var(--text-muted)';
+      }
+      const rh = document.getElementById('radar-fusion-hint');
+      const fp = document.getElementById('fusion-panel');
+      const fusion = s.vitals_fusion || {};
+      const people = fusion.people || [];
+      const nCh = fusion.radar_channel_count != null ? fusion.radar_channel_count : 0;
+      if (fp) {
+        if (people.length === 0) {
+          fp.textContent = 'No fusion rows yet (need faces plus multi-channel radar).';
+          fp.style.color = 'var(--text-muted)';
+        } else {
+          fp.style.color = 'inherit';
+          const recLabs =
+            s.last_recognition && Array.isArray(s.last_recognition.labels)
+              ? s.last_recognition.labels
+              : [];
+          const rows = people.map((p) => {
+            const d = p.depth_m != null && !Number.isNaN(Number(p.depth_m)) ? `${Number(p.depth_m).toFixed(2)} m` : '—';
+            const vh = p.visual_hr_bpm != null && !Number.isNaN(Number(p.visual_hr_bpm)) ? `${Number(p.visual_hr_bpm).toFixed(0)}` : '—';
+            const vr = p.visual_resp_bpm != null && !Number.isNaN(Number(p.visual_resp_bpm)) ? `${Number(p.visual_resp_bpm).toFixed(1)}` : '—';
+            const rhv = p.radar_hr_bpm != null && !Number.isNaN(Number(p.radar_hr_bpm)) ? `${Number(p.radar_hr_bpm).toFixed(1)}` : '—';
+            const rr = p.radar_resp_bpm != null && !Number.isNaN(Number(p.radar_resp_bpm)) ? `${Number(p.radar_resp_bpm).toFixed(1)}` : '—';
+            const bins = (p.radar_bin_start != null && p.radar_bin_end != null)
+              ? `[${p.radar_bin_start}, ${p.radar_bin_end})`
+              : '—';
+            const fh = p.fused_hr_bpm != null && !Number.isNaN(Number(p.fused_hr_bpm)) ? `${Number(p.fused_hr_bpm).toFixed(1)}` : '—';
+            const fr = p.fused_resp_bpm != null && !Number.isNaN(Number(p.fused_resp_bpm)) ? `${Number(p.fused_resp_bpm).toFixed(1)}` : '—';
+            const nm =
+              typeof p.face_index === 'number' && recLabs[p.face_index]
+                ? String(recLabs[p.face_index])
+                : '—';
+            return `<tr><td>${p.slot}<div class="slot-sub">${nm}</div></td><td>${d}</td><td>${bins}</td><td>${fh}</td><td>${fr}</td><td>${vh}</td><td>${vr}</td><td>${rhv}</td><td>${rr}</td></tr>`;
+          }).join('');
+          const fm = fusion.fusion_model ? ` · ${fusion.fusion_model}` : '';
+          const sc = (fusion.depth_scene_m && fusion.depth_scene_m.length === 2)
+            ? ` · scene depth [${fusion.depth_scene_m[0]}, ${fusion.depth_scene_m[1]}] m`
+            : '';
+          const dm = fusion.use_depth_bin_match === false ? ' (depth–bin matching off)' : '';
+          fp.innerHTML = `<div class="fusion-table-wrap"><table><thead><tr><th align="left">Slot / name</th><th align="left">Depth</th><th align="left">Radar bin</th><th align="left">Fused HR</th><th align="left">Fused RR</th><th align="left">Vis HR</th><th align="left">Vis RR</th><th align="left">Radar HR</th><th align="left">Radar RR</th></tr></thead><tbody>${rows}</tbody></table></div><div class="fusion-meta">Radar channels: ${nCh} · ${fusion.assignment || '—'}${sc}${dm}${fm}</div>`;
+        }
+      }
+      if (rh) {
+        const n = (v.faces && v.faces.length) ? v.faces.length : 0;
+        if (n > 0) {
+          rh.textContent = `≈${n} face(s) on video; ${nCh} radar range gates (heuristic depth-ranked pairing).`;
+          rh.style.color = 'var(--text)';
+        } else {
+          rh.textContent = 'Without faces, radar multi-channel and main-channel waveforms still apply.';
+          rh.style.color = 'var(--text-muted)';
+        }
+      }
+      updateSessionChrome(s);
+      syncLiveCamera(s);
+      updateRadarWaveformKey();
+      renderKpis();
+    }
+
+    function initRadarCharts() {
+      const pal = getThemeChartPalette();
+      const gridColor = pal.grid;
+      const common = {
+        type: 'line',
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: {
+              ticks: { maxTicksLimit: 5, color: pal.tick, font: { size: 10 } },
+              grid: { color: gridColor },
+            },
+          },
+        },
+      };
+      const ctxP = document.getElementById('chart-phase').getContext('2d');
+      chartPhase = new Chart(ctxP, {
+        ...common,
+        data: {
+          labels: Array.from({ length: 256 }, (_, i) => i),
+          datasets: [{ data: new Array(256).fill(0), borderColor: chartLineMuted[0], borderWidth: 1.5, pointRadius: 0 }],
+        },
+      });
+      const ctxB = document.getElementById('chart-breath').getContext('2d');
+      chartBreath = new Chart(ctxB, {
+        ...common,
+        data: {
+          labels: Array.from({ length: 100 }, (_, i) => i),
+          datasets: [{ data: new Array(100).fill(0), borderColor: chartLineMuted[1], borderWidth: 1.5, pointRadius: 0 }],
+        },
+      });
+      const ctxH = document.getElementById('chart-heart').getContext('2d');
+      chartHeart = new Chart(ctxH, {
+        ...common,
+        data: {
+          labels: Array.from({ length: 100 }, (_, i) => i),
+          datasets: [{ data: new Array(100).fill(0), borderColor: chartLineMuted[2], borderWidth: 1.5, pointRadius: 0 }],
+        },
+      });
+    }
+
+    function setRadarBanner(text, show) {
+      const el = document.getElementById('radar-banner');
+      el.style.display = show ? 'block' : 'none';
+      el.textContent = text || '';
+    }
+
+    async function refreshRadar() {
+      const resp = await fetch('/api/radar/poll');
+      const pack = await resp.json();
+      if (!pack.ok) {
+        setRadarBanner(pack.error || 'Cannot reach Pi radar service', true);
+        document.getElementById('radar-run').textContent = 'No';
+        lastRadarPayload = { error: pack.error || 'unreachable' };
+        renderRadarVitalMetrics({ breathing_rate: 0, heart_rate: 0 });
+        updateRadarWaveformKey();
+        renderKpis();
+        return;
+      }
+      setRadarBanner('', false);
+      const d = pack.radar || {};
+      lastRadarPayload = d;
+      document.getElementById('radar-run').textContent = d.is_running ? 'Yes' : 'No';
+      document.getElementById('radar-frames').textContent = d.frame_count != null ? d.frame_count : '0';
+      document.getElementById('radar-fps').textContent = d.fps != null ? d.fps : '0';
+      renderRadarVitalMetrics(d);
+
+      const phase = d.current_phase && d.current_phase.phase_unwrapped;
+      if (chartPhase && phase && phase.length) {
+        chartPhase.data.datasets[0].data = phase;
+        chartPhase.update('none');
+      }
+      const breathDs = buildRadarWaveformDatasets(d, 'breathing_signal');
+      const heartDs = buildRadarWaveformDatasets(d, 'heart_signal');
+      applyWaveformChart(chartBreath, breathDs);
+      applyWaveformChart(chartHeart, heartDs);
+      updateRadarWaveformKey();
+      renderKpis();
+    }
+
+    async function startRadarPi() {
+      const resp = await fetch('/api/radar/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await resp.json();
+      if (!data.ok) {
+        alert(data.error || 'Start failed');
+        return;
+      }
+      await refreshRadar();
+    }
+
+    async function stopRadarPi() {
+      const resp = await fetch('/api/radar/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await resp.json();
+      if (!data.ok) {
+        alert(data.error || 'Stop failed');
+        return;
+      }
+      await refreshRadar();
+    }
+
+    setInterval(refreshStatus, 800);
+    setInterval(refreshRadar, 250);
+    initThemeToggle();
+    refreshStatus();
+    initRadarCharts();
+    applyChartTheme();
+    refreshRadar();
+
+  </script>
+</body>
+</html>

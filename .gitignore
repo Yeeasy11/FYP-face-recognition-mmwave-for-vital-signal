@@ -1,0 +1,28 @@
+# Training datasets only (large; obtain separately for re-training)
+/datasets/
+
+# Local secrets (never commit)
+.env
+.env.*
+
+# Virtual environments (recreate with pip/conda on each machine)
+.venv/
+venv/
+env/
+
+# Python / test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime logs (regenerated on each run)
+*_log.txt
+*.log
+.face_app_boot.log
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
