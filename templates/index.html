@@ -263,6 +263,45 @@
                 <p class="hint radar-footnote">Pi runs <code>shumeipai.py</code>; set <code>RADAR_PI_BASE=http://…</code> on the host; use <code>USE_PI_CAMERA=1</code> when the camera is on the Pi.</p>
               </div>
             </section>
+
+            <section class="section-block section-rcg-ecg" id="rcg-ecg-section">
+              <h2 class="section-heading">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 12 7 12 9.5 5 14.5 19 17 12 21 12"/></svg>
+                </span>
+                RCG-ECG Loop <span class="section-tag">Bidirectional waveform analysis</span>
+              </h2>
+              <div class="section-body">
+                <div class="rcg-ecg-toolbar">
+                  <input id="rcg-ecg-file" class="rcg-ecg-file" type="file" accept=".csv" multiple webkitdirectory directory />
+                  <button type="button" class="btn-primary" onclick="loadRcgEcgData()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+                    Load data
+                  </button>
+                  <button type="button" class="btn-quiet" id="rcg-ecg-analyse" onclick="analyseRcgEcgData()" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 4-4 3 3 6-7"/><path d="M20 20H4V4"/></svg>
+                    Analyse
+                  </button>
+                  <span class="rcg-ecg-status" id="rcg-ecg-status" role="status">No dataset loaded</span>
+                </div>
+                <div class="rcg-ecg-charts">
+                  <div class="radar-chart-card rcg-ecg-chart-card">
+                    <h3>RCG → ECG <span class="chart-subtitle">reconstructed waveform</span></h3>
+                    <div class="chart-box"><canvas id="chart-rcg-ecg"></canvas></div>
+                  </div>
+                  <div class="radar-chart-card rcg-ecg-chart-card">
+                    <h3>ECG → RCG <span class="chart-subtitle">reconstructed waveform</span></h3>
+                    <div class="chart-box"><canvas id="chart-ecg-rcg"></canvas></div>
+                  </div>
+                </div>
+                <div class="rcg-ecg-compare" id="rcg-ecg-compare" aria-live="polite">
+                  <div class="metric"><small>RCG similarity</small><strong id="rcg-similarity">--</strong></div>
+                  <div class="metric"><small>RCG MSE</small><strong id="rcg-mse">--</strong></div>
+                  <div class="metric"><small>RCG MAE</small><strong id="rcg-mae">--</strong></div>
+                </div>
+                <p class="hint rcg-ecg-footnote">Select a dataset folder containing CSV files with <code>ECG</code> and <code>RCG</code> or <code>RCG_ch1</code> columns. Analysis uses the notebook-compatible 640-point windows.</p>
+              </div>
+            </section>
           </section>
         </div>
 
@@ -311,9 +350,12 @@
     let chartPhase = null;
     let chartBreath = null;
     let chartHeart = null;
+    let chartRcgEcg = null;
+    let chartEcgRcg = null;
     let enrollTargetPerson = null;
     let lastRadarPayload = null;
     let cameraLiveActive = false;
+    let rcgEcgFiles = [];
 
     let chartLineMuted = ['#4338ca', '#0891b2', '#64748b'];
     let radarPalette = ['#4338ca', '#0891b2', '#059669', '#d97706', '#ec4899'];
@@ -347,7 +389,7 @@
       const pal = getThemeChartPalette();
       chartLineMuted = pal.lines.slice(0, 3);
       radarPalette = pal.radar.slice();
-      const charts = [chartPhase, chartBreath, chartHeart].filter(Boolean);
+      const charts = [chartPhase, chartBreath, chartHeart, chartRcgEcg, chartEcgRcg].filter(Boolean);
       charts.forEach((chart) => {
         if (chart.options && chart.options.scales && chart.options.scales.y) {
           chart.options.scales.y.ticks.color = pal.tick;
@@ -359,6 +401,9 @@
             ds0.borderColor = pal.placeholder;
           } else if (!ds0.borderDash || !ds0.borderDash.length) {
             ds0.borderColor = chartLineMuted[0];
+          }
+          if ((chart === chartRcgEcg || chart === chartEcgRcg) && chart.data.datasets[1]) {
+            chart.data.datasets[1].borderColor = chartLineMuted[1];
           }
         }
         chart.update('none');
@@ -1294,6 +1339,119 @@
       });
     }
 
+    function initRcgEcgCharts() {
+      const pal = getThemeChartPalette();
+      const common = {
+        type: 'line',
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: {
+              ticks: { maxTicksLimit: 5, color: pal.tick, font: { size: 10 } },
+              grid: { color: pal.grid },
+            },
+          },
+        },
+      };
+      const empty = new Array(160).fill(null);
+      const ctxR = document.getElementById('chart-rcg-ecg').getContext('2d');
+      chartRcgEcg = new Chart(ctxR, {
+        ...common,
+        data: {
+          labels: empty.map((_, i) => i),
+          datasets: [
+            { label: 'RCG → ECG reconstructed', data: empty, borderColor: pal.lines[0], borderWidth: 1.75, pointRadius: 0, tension: 0.16 },
+            { label: 'ECG true value', data: empty, borderColor: pal.lines[1], borderWidth: 1.5, pointRadius: 0, tension: 0.16, borderDash: [7, 4] },
+          ],
+        },
+      });
+      const ctxE = document.getElementById('chart-ecg-rcg').getContext('2d');
+      chartEcgRcg = new Chart(ctxE, {
+        ...common,
+        data: {
+          labels: empty.map((_, i) => i),
+          datasets: [
+            { label: 'ECG → RCG reconstructed', data: empty, borderColor: pal.lines[0], borderWidth: 1.75, pointRadius: 0, tension: 0.16 },
+            { label: 'RCG true value', data: empty, borderColor: pal.lines[1], borderWidth: 1.5, pointRadius: 0, tension: 0.16, borderDash: [7, 4] },
+          ],
+        },
+      });
+      [chartRcgEcg, chartEcgRcg].forEach((chart) => {
+        chart.options.plugins.legend.display = true;
+        chart.options.plugins.legend.position = 'bottom';
+        chart.options.plugins.legend.labels = { boxWidth: 10, font: { size: 10 } };
+      });
+    }
+
+    function setRcgEcgStatus(text, tone) {
+      const el = document.getElementById('rcg-ecg-status');
+      if (!el) return;
+      el.textContent = text;
+      el.className = `rcg-ecg-status${tone ? ` rcg-ecg-status--${tone}` : ''}`;
+    }
+
+    function loadRcgEcgData() {
+      const input = document.getElementById('rcg-ecg-file');
+      if (input) input.click();
+    }
+
+    function handleRcgEcgFile(event) {
+      rcgEcgFiles = Array.from(event.target.files || []).filter((file) => file.name.toLowerCase().endsWith('.csv'));
+      const analyseButton = document.getElementById('rcg-ecg-analyse');
+      if (analyseButton) analyseButton.disabled = rcgEcgFiles.length === 0;
+      if (!rcgEcgFiles.length) {
+        setRcgEcgStatus('No CSV files found in the selected folder', 'error');
+        return;
+      }
+      setRcgEcgStatus(`${rcgEcgFiles.length} CSV files selected · ready to analyse`, 'ready');
+    }
+
+    async function analyseRcgEcgData() {
+      if (!rcgEcgFiles.length) {
+        setRcgEcgStatus('Load an RCG/ECG dataset folder first', 'error');
+        return;
+      }
+      const button = document.getElementById('rcg-ecg-analyse');
+      if (button) button.disabled = true;
+      setRcgEcgStatus('Analysing with the notebook diffusion model…');
+      const form = new FormData();
+      rcgEcgFiles.forEach((file) => form.append('files', file, file.webkitRelativePath || file.name));
+      try {
+        const response = await fetch('/api/rcg-ecg/analyse', { method: 'POST', body: form });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'RCG/ECG analysis failed');
+        const sample = result.windows && result.windows[0];
+        if (!sample) throw new Error('The analysis returned no waveform window');
+        const labels = sample.predicted_ecg.map((_, i) => i);
+        const predicted = sample.predicted_ecg;
+        const predictedRcg = sample.predicted_rcg;
+        chartRcgEcg.data.labels = labels;
+        chartRcgEcg.data.datasets = [
+          { label: 'RCG → ECG reconstructed', data: predicted, borderColor: chartLineMuted[0], borderWidth: 1.75, pointRadius: 0, tension: 0.16 },
+          { label: 'ECG true value', data: sample.ecg, borderColor: chartLineMuted[1], borderWidth: 1.5, pointRadius: 0, tension: 0.16, borderDash: [7, 4] },
+        ];
+        chartEcgRcg.data.labels = labels;
+        chartEcgRcg.data.datasets = [
+          { label: 'ECG → RCG reconstructed', data: predictedRcg, borderColor: chartLineMuted[0], borderWidth: 1.75, pointRadius: 0, tension: 0.16 },
+          { label: 'RCG true value', data: sample.rcg, borderColor: chartLineMuted[1], borderWidth: 1.5, pointRadius: 0, tension: 0.16, borderDash: [7, 4] },
+        ];
+        chartRcgEcg.update('none');
+        chartEcgRcg.update('none');
+        document.getElementById('rcg-similarity').textContent = Number(sample.rcg_similarity).toFixed(4);
+        document.getElementById('rcg-mse').textContent = Number(sample.rcg_mse).toFixed(5);
+        document.getElementById('rcg-mae').textContent = Number(sample.rcg_mae).toFixed(5);
+        setRcgEcgStatus(`${result.analysed_windows}/${result.total_windows} windows · ${sample.source} · RCG similarity ${Number(sample.rcg_similarity).toFixed(4)}`, 'ready');
+      } catch (error) {
+        setRcgEcgStatus(error.message || 'RCG/ECG analysis failed', 'error');
+      } finally {
+        if (button) button.disabled = rcgEcgFiles.length === 0;
+      }
+    }
+
     function setRadarBanner(text, show) {
       const el = document.getElementById('radar-banner');
       el.style.display = show ? 'block' : 'none';
@@ -1355,9 +1513,11 @@
 
     setInterval(refreshStatus, 800);
     setInterval(refreshRadar, 250);
+    document.getElementById('rcg-ecg-file').addEventListener('change', handleRcgEcgFile);
     initThemeToggle();
     refreshStatus();
     initRadarCharts();
+    initRcgEcgCharts();
     applyChartTheme();
     refreshRadar();
 

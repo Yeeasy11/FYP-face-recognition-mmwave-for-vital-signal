@@ -157,6 +157,25 @@ flowchart LR
 
 最终每个人的结果会包含原始视觉/雷达值、深度、雷达 bin、质量、融合值以及融合方法，例如 `fused_hr_bpm`、`fused_resp_bpm`、`fusion_hr_method` 和 `fusion_rr_method`。
 
+### 3.5 RCG-ECG Loop 分析
+
+`loop/rcg_ecg_analysis.py` 将两个 notebook 中的双向测试逻辑整理为可被 Web 调用的 Python 模块。两个方向都使用条件 1-D U-Net 扩散模型：一个以 RCG 为条件生成 ECG，另一个以 ECG 为条件生成 RCG。
+
+- 每个 CSV 文件必须包含 `ECG` 和 `RCG` 或 `RCG_ch1` 两列；两列长度必须一致。
+- 数据按长度 `640`、步长 `30` 的滑动窗口切分，与 notebook 训练/测试设置一致。
+- 模型配置默认是 `T=100`、`beta_start=1e-4`、`beta_end=0.02`、`base_channels=64`、`time_emb_dim=128`。
+- 网络由时间步正弦嵌入、残差卷积块、SE 通道注意力、瓶颈自注意力和 1-D U-Net 跳跃连接组成。
+- Web API `POST /api/rcg-ecg/analyse` 接收数据集 CSV 文件，最多分析 8 个窗口，返回 `RCG → ECG` 和 `ECG → RCG` 两个预测波形。
+- 页面使用 `ECG → RCG` 预测结果与原始 RCG 进行 Pearson 相似度、MSE 和 MAE 对比；第二张图不是 ECG reference。
+- 页面中的 `Load data` 用于选择数据集目录，`Analyse` 才会执行 PyTorch 推理；当前接口不保存上传数据。
+- notebook 训练生成的 `last_model.pt` 或 `best_model.pt` 不在当前仓库中。部署前设置 `RCG_ECG_CHECKPOINT` 指向 checkpoint，例如：
+
+```powershell
+$env:RCG_ECG_CHECKPOINT = "D:\models\our-9-27-raw\last_model.pt"
+$env:ECG_RCG_CHECKPOINT = "D:\models\unet-9-27\last_model.pt"
+python fyp_launcher.py
+```
+
 ## 4. 文件与目录说明
 
 ### 4.1 运行时入口和核心模块
@@ -198,7 +217,7 @@ flowchart LR
 | `UTKFace/` | 年龄模型训练数据目录。 |
 | `utkface_aligned_cropped/` | 对齐后的 UTKFace 数据目录。 |
 | `crop_part1/` | 数据集或预处理图片目录，具体用途取决于实验脚本。 |
-| `loop/` | notebook 实验和分析代码，不是生产服务启动入口。 |
+| `loop/` | RCG-ECG notebook、`rcg_ecg_analysis.py` 推理模块和相关实验代码。 |
 
 ### 4.4 PhysFormer 子项目
 
@@ -232,6 +251,7 @@ flowchart LR
 | `GET` | `/api/radar/poll` | 代理读取树莓派 `/api/radar`。 |
 | `POST` | `/api/radar/start` | 代理启动树莓派雷达。 |
 | `POST` | `/api/radar/stop` | 代理停止树莓派雷达。 |
+| `POST` | `/api/rcg-ecg/analyse` | 接收 notebook 格式的 RCG/ECG CSV 数据集并执行条件扩散推理。 |
 
 ### 5.2 树莓派 `shumeipai.py`：默认端口 5000
 

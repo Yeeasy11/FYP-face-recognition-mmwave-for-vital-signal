@@ -5,6 +5,7 @@ import math
 import os
 import sys
 import threading
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -76,6 +77,7 @@ from realsense_utils import (
     median_depth_meters,
 )
 from visual_respiration import VisualRespirationTracker
+from loop.rcg_ecg_analysis import analyse_dataset
 
 app = Flask(__name__)
 
@@ -1669,6 +1671,32 @@ def api_stop():
         last_recognition = reset_recognition("未识别")
         status_text = "已停止，等待操作"
     return jsonify({"ok": True})
+
+@app.route("/api/rcg-ecg/analyse", methods=["POST"])
+def api_rcg_ecg_analyse():
+    uploads = request.files.getlist("files")
+    if not uploads:
+        return jsonify({"ok": False, "error": "请选择包含 CSV 文件的 RCG/ECG 数据集"}), 400
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="fyp_rcg_ecg_") as temp_dir:
+            temp_root = Path(temp_dir)
+            paths = []
+            for index, upload in enumerate(uploads):
+                filename = Path(upload.filename or "").name
+                if not filename.lower().endswith(".csv"):
+                    continue
+                path = temp_root / f"{index}_{filename}"
+                upload.save(str(path))
+                paths.append(path)
+            if not paths:
+                return jsonify({"ok": False, "error": "上传内容中没有 CSV 数据文件"}), 400
+            result = analyse_dataset(paths, max_windows=8)
+            return jsonify(result)
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+    except (ValueError, RuntimeError, OSError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
 
 def _radar_pi_url(path):
     base = (RADAR_PI_BASE or "").strip().rstrip("/")
